@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>🏒 Critter Air Hockey 3D: Neon Stadium Smash!</title>
+  <link rel="icon" href="icons/catnap.jpg" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="game-root">
+    <!-- 3D WebGL Canvas Host -->
+    <div id="webgl-container"></div>
+
+    <!-- Screen Flash & Fever FX Overlay -->
+    <div id="fx-flash"></div>
+    <div id="fever-vignette"></div>
+
+    <!-- Top Visual HUD (100% Zero-Text Visual Cockpit) -->
+    <header id="hud-top">
+      <div class="hud-left">
+        <button id="btn-home" class="icon-btn" aria-label="Home">🏠</button>
+        <div id="hud-stage-pill" class="stage-pill">
+          <span id="hud-stage-emoji">🌙</span>
+          <span id="hud-stage-num">1/8</span>
+        </div>
+        <div id="hud-timer-pill" class="timer-pill">
+          <span class="timer-icon">⏱️</span>
+          <div class="timer-bar-wrap">
+            <div id="hud-timer-fill" class="timer-bar-fill"></div>
+          </div>
+          <span id="hud-timer-sec">45</span>
+        </div>
+      </div>
+
+      <!-- Match Scoreboard Duel Badge (Player vs Rival Goalie) -->
+      <div id="hud-duel-board" class="duel-board">
+        <div class="duel-side player-side">
+          <img id="hud-player-img" src="icons/dogday.jpg" alt="" />
+          <span id="hud-player-goals" class="duel-score">0</span>
+        </div>
+        <div class="duel-vs">⚡🏒⚡</div>
+        <div class="duel-side rival-side">
+          <span id="hud-rival-goals" class="duel-score">0</span>
+          <img id="hud-rival-img" src="icons/catnap.jpg" alt="" />
+        </div>
+      </div>
+
+      <div class="hud-right">
+        <!-- Interactive Touch Rainbow Fever Button -->
+        <button id="fever-meter-pill" class="fever-pill" title="🌈" aria-label="Rainbow Fever">
+          <span class="fever-icon">🌈</span>
+          <div class="fever-bar-wrap">
+            <div id="fever-bar-fill" class="fever-bar-fill"></div>
+          </div>
+          <span class="fever-star-icon">⭐</span>
+        </button>
+        <button id="btn-cam" class="icon-btn" aria-label="Camera">🎥</button>
+        <button id="btn-audio" class="icon-btn" aria-label="Sound">🔊</button>
+      </div>
+    </header>
+
+    <!-- Live 5-Critter Championship Leaderboard Strip (Left Dock) -->
+    <aside id="live-leaderboard" class="leaderboard-dock">
+      <!-- Populated dynamically with 5 critter portraits, rank medals, & live scores -->
+    </aside>
+
+    <!-- Floating Goal / Combo Emoji Popups -->
+    <div id="floating-popups"></div>
+
+    <!-- Bottom Cockpit: Real-Time Swing Power Gauge + 3 Giant Touch Power Pedals -->
+    <footer id="hud-bottom">
+      <div class="pedals-cluster">
+        <!-- Icon-Only Real-Time Mallet Swing Speed / Slapshot Power Gauge -->
+        <div id="swing-power-pill" class="swing-gauge-pill" aria-label="Swing Power">
+          <span class="swing-icon">🚀</span>
+          <div class="swing-bar-wrap">
+            <div id="swing-power-fill" class="swing-bar-fill"></div>
+          </div>
+          <span class="swing-icon">💥</span>
+        </div>
+
+        <!-- Pedal 1: Curve Vortex Magnet Puck (Key 1) -->
+        <button id="pedal-vortex" class="power-pedal pedal-vortex ready" data-pedal="vortex" aria-label="Vortex">
+          <div class="pedal-ring">
+            <svg viewBox="0 0 64 64">
+              <circle class="ring-bg" cx="32" cy="32" r="28" />
+              <circle id="ring-vortex" class="ring-fg" cx="32" cy="32" r="28" />
+            </svg>
+            <span class="pedal-emoji">🌪️</span>
+          </div>
+          <span class="pedal-key">1</span>
+        </button>
+
+        <!-- Pedal 2: Fire Slapshot Smash (Key 2 / Space) -->
+        <button id="pedal-fire" class="power-pedal pedal-fire ready" data-pedal="fire" aria-label="Fire Slapshot">
+          <div class="pedal-ring">
+            <svg viewBox="0 0 64 64">
+              <circle class="ring-bg" cx="32" cy="32" r="28" />
+              <circle id="ring-fire" class="ring-fg" cx="32" cy="32" r="28" />
+            </svg>
+            <span class="pedal-emoji">⚡</span>
+          </div>
+          <span class="pedal-key">2 / ␣</span>
+        </button>
+
+        <!-- Pedal 3: Giant Goal Shield Wall (Key 3) -->
+        <button id="pedal-shield" class="power-pedal pedal-shield ready" data-pedal="shield" aria-label="Goal Shield">
+          <div class="pedal-ring">
+            <svg viewBox="0 0 64 64">
+              <circle class="ring-bg" cx="32" cy="32" r="28" />
+              <circle id="ring-shield" class="ring-fg" cx="32" cy="32" r="28" />
+            </svg>
+            <span class="pedal-emoji">🛡️</span>
+          </div>
+          <span class="pedal-key">3</span>
+        </button>
+      </div>
+    </footer>
+
+    <!-- OVERLAY 1: Character & Stage Select Screen (Zero-Text Visual Menu) -->
+    <section id="overlay-menu" class="modal-overlay active">
+      <div class="modal-card menu-card">
+        <div class="hero-banner">
+          <div class="hero-badges">
+            <span class="hero-icon bounce-1">🏒</span>
+            <span class="hero-icon bounce-2">⚡</span>
+            <span class="hero-icon bounce-3">🏆</span>
+            <span class="hero-icon bounce-4">🌈</span>
+          </div>
+          <div class="total-stars-pill">
+            <span>⭐</span>
+            <span id="menu-total-stars">0 / 24</span>
+          </div>
+        </div>
+
+        <!-- 8 Smiling Critters Selector Grid -->
+        <div class="section-icon-header">
+          <span>🐾</span>
+          <span>👉</span>
+          <span>🏒</span>
+        </div>
+        <div id="critter-grid" class="critter-grid"></div>
+
+        <!-- 8 Neon Air Hockey Stadiums Selector Grid -->
+        <div class="section-icon-header">
+          <span>🏟️</span>
+          <span>👉</span>
+          <span>🔓</span>
+        </div>
+        <div id="stage-grid" class="stage-grid"></div>
+
+        <!-- Big Play Launch Button -->
+        <div class="menu-actions">
+          <button id="btn-start-match" class="big-play-btn" aria-label="Play">
+            <span class="play-icon">▶️</span>
+            <span class="play-sub">🏒⚡</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- OVERLAY 2: Podium / Match Result Screen (Strict Top-3 Qualification) -->
+    <section id="overlay-result" class="modal-overlay">
+      <div class="modal-card result-card">
+        <div id="result-crown-banner" class="result-crown-banner">🏆</div>
+        <div id="result-stars-row" class="result-stars-row">⭐⭐⭐</div>
+
+        <!-- 3D-Styled Top-3 Podium + 4th/5th Row -->
+        <div id="podium-stage" class="podium-stage"></div>
+        <div id="runners-up-row" class="runners-up-row"></div>
+
+        <!-- Action Buttons: Retry ALWAYS shown; Next Stage ONLY unlocked on Top-3 (1st/2nd/3rd) -->
+        <div class="result-actions">
+          <button id="btn-result-menu" class="action-btn menu-btn" aria-label="Stages">🏟️</button>
+          <button id="btn-result-retry" class="action-btn retry-btn" aria-label="Retry">🔄</button>
+          <button id="btn-result-next" class="action-btn next-btn" aria-label="Next">▶️</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="js/vendor/three.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
