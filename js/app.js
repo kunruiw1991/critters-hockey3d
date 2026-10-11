@@ -1776,10 +1776,13 @@
   }
 
   function getSortedLeaderboard() {
+    const wonHeadToHead = state.playerGoals > state.rivalGoals;
     return [...state.leaderboard].sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      if (a.isPlayer) return -1;
-      if (b.isPlayer) return 1;
+      if (a.isPlayer) return wonHeadToHead ? -1 : 1;
+      if (b.isPlayer) return wonHeadToHead ? 1 : -1;
+      if (a.isRival) return -1;
+      if (b.isRival) return 1;
       return 0;
     });
   }
@@ -2999,12 +3002,72 @@
         o.score = (5 - idx) * 3;
       });
       if (pEntry) {
-        if (forcedRank === 1) pEntry.score = 20;
-        else if (forcedRank === 2) pEntry.score = 13;
-        else if (forcedRank === 3) pEntry.score = 10;
-        else if (forcedRank === 4) pEntry.score = 7;
-        else pEntry.score = 1;
-        state.playerGoals = pEntry.score;
+        if (forcedRank === 1) {
+          pEntry.score = 20;
+          state.playerGoals = 20;
+          state.rivalGoals = 12;
+        } else if (forcedRank === 2) {
+          pEntry.score = 13;
+          state.playerGoals = 13;
+          state.rivalGoals = 12;
+        } else if (forcedRank === 3) {
+          pEntry.score = 10;
+          state.playerGoals = 10;
+          state.rivalGoals = 9;
+        } else if (forcedRank === 4) {
+          pEntry.score = 7;
+          state.playerGoals = 7;
+          state.rivalGoals = 9;
+        } else {
+          pEntry.score = 1;
+          state.playerGoals = 1;
+          state.rivalGoals = 5;
+        }
+      }
+      renderLiveLeaderboard();
+    } else {
+      // Enforce strict head-to-head match outcome rules:
+      // 1. If the player DID NOT WIN the head-to-head Air Hockey match (playerGoals <= rivalGoals, i.e. loss or tie),
+      //    the player MUST finish in 4th or 5th place (0 stars, Defeat — NEVER Top 3 or 3 stars!).
+      // 2. If the player WON the match (playerGoals > rivalGoals):
+      //    - Winning by >= 2 goals (or scoring >= 3 goals while beating rival) earns 1st Place (3 stars).
+      //    - Winning by 1 goal with >= 2 goals (e.g. 2-1) earns 2nd Place (2 stars).
+      //    - Winning 1-0 earns 3rd Place (1 star).
+      const pEntry = state.leaderboard.find((e) => e.isPlayer);
+      const rEntry = state.leaderboard.find((e) => e.isRival);
+      const offRink = state.leaderboard.filter((e) => !e.isPlayer && !e.isRival);
+      if (pEntry) pEntry.score = state.playerGoals;
+      if (rEntry) rEntry.score = state.rivalGoals;
+
+      const wonMatch = state.playerGoals > state.rivalGoals;
+      const goalDiff = state.playerGoals - state.rivalGoals;
+
+      if (!wonMatch) {
+        // Player lost or tied head-to-head: ensure at least 3 opponents have strictly higher tournament points than player!
+        const baseTop = Math.max(state.rivalGoals, state.playerGoals + 1);
+        if (rEntry) rEntry.score = Math.max(state.rivalGoals, state.playerGoals + 1);
+        if (offRink[0]) offRink[0].score = Math.max(offRink[0].score, baseTop + 2);
+        if (offRink[1]) offRink[1].score = Math.max(offRink[1].score, baseTop + 1);
+        if (offRink[2]) {
+          offRink[2].score = state.playerGoals < state.rivalGoals
+            ? Math.max(offRink[2].score, state.playerGoals + 1)
+            : Math.max(0, state.playerGoals - 1);
+        }
+      } else if (goalDiff >= 2 || state.playerGoals >= 3) {
+        // Decisive win -> 1st Place (3 Stars)
+        offRink.forEach((o, idx) => {
+          o.score = Math.min(o.score, Math.max(0, state.playerGoals - 1 - (idx % 2)));
+        });
+      } else if (state.playerGoals >= 2) {
+        // Close 2-1 win -> 2nd Place (2 Stars)
+        if (offRink[0]) offRink[0].score = state.playerGoals + 1;
+        if (offRink[1]) offRink[1].score = Math.max(0, state.playerGoals - 1);
+        if (offRink[2]) offRink[2].score = Math.max(0, state.playerGoals - 2);
+      } else {
+        // Narrow 1-0 win -> 3rd Place (1 Star)
+        if (offRink[0]) offRink[0].score = state.playerGoals + 2;
+        if (offRink[1]) offRink[1].score = state.playerGoals + 1;
+        if (offRink[2]) offRink[2].score = 0;
       }
       renderLiveLeaderboard();
     }
@@ -3012,8 +3075,8 @@
     const sorted = getSortedLeaderboard();
     const playerIdx = sorted.findIndex((e) => e.isPlayer);
     const rank = playerIdx >= 0 ? playerIdx + 1 : 5;
-    const qualified = rank <= 3;
-    const starsEarned = rank === 1 ? 3 : rank === 2 ? 2 : rank === 3 ? 1 : 0;
+    const qualified = rank <= 3 && (forcedRank !== null || state.playerGoals > state.rivalGoals);
+    const starsEarned = !qualified ? 0 : (rank === 1 ? 3 : rank === 2 ? 2 : rank === 3 ? 1 : 0);
 
     state.lastResultRank = rank;
     state.lastResultStars = starsEarned;
@@ -3303,18 +3366,14 @@
     camera.lookAt(lookX, lookY, lookZ);
 
     if (state.trauma > 0) {
-      state.trauma = Math.max(0, state.trauma - dt * 1.55);
-      const motionMult = prefersReducedMotion ? 0.5 : 1.0;
+      state.trauma = Math.max(0, state.trauma - dt * 2.2);
+      const motionMult = prefersReducedMotion ? 0.4 : 1.0;
       const s = state.trauma * state.trauma * motionMult;
-      const n1 = Math.sin(elapsed * 145.0) * 0.65 + Math.cos(elapsed * 93.0) * 0.35;
-      const n2 = Math.cos(elapsed * 158.0) * 0.65 + Math.sin(elapsed * 107.0) * 0.35;
-      const n3 = Math.sin(elapsed * 172.0) * 0.65 + Math.cos(elapsed * 119.0) * 0.35;
+      const n1 = Math.sin(elapsed * 28.0) * 0.65 + Math.cos(elapsed * 19.0) * 0.35;
+      const n2 = Math.cos(elapsed * 31.0) * 0.65 + Math.sin(elapsed * 23.0) * 0.35;
 
-      camera.position.x += n1 * s * 0.65;
-      camera.position.y += n2 * s * 0.55;
-      camera.rotateY(0.008 * s * n1);
-      camera.rotateX(0.008 * s * n2);
-      camera.rotateZ(0.013 * s * n3);
+      camera.position.x += n1 * s * 0.12;
+      camera.position.y += n2 * s * 0.09;
     }
 
     if (playerMalletMesh.userData.medalGroup) {
@@ -3437,15 +3496,14 @@
       }
 
       let lbChanged = false;
-      const offRinkCap = stage.id === 1
-        ? Math.min(2, Math.max(0, state.playerGoals - 1))
-        : state.playerGoals + (stage.id >= 6 ? 2 : 1);
-      state.leaderboard.forEach((entry) => {
+      const offRinkCap = 2 + Math.floor(stage.id * 0.65);
+      state.leaderboard.forEach((entry, idx) => {
         if (!entry.isPlayer && !entry.isRival) {
           entry.simTimer -= dt;
           if (entry.simTimer <= 0) {
             entry.simTimer = entry.simRate + Math.random() * 2.5;
-            if (entry.score < offRinkCap) {
+            const slotCap = Math.max(1, offRinkCap - (idx % 2));
+            if (entry.score < slotCap) {
               entry.score += 1;
               entry.lastScoredAt = now;
               lbChanged = true;
